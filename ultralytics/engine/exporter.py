@@ -1226,12 +1226,12 @@ class Exporter:
         return export_path
 
     @try_export
-    def export_drobotics(self, prefix=colorstr("D-Robotics:")):
+    def export_rdk(self, prefix=colorstr("D-Robotics:")):
         """Export YOLO model to D-Robotics BPU format."""
-        from ultralytics.utils.export.drobotics import export_drobotics
+        from ultralytics.utils.export.rdk import export_rdk
 
-        check_drobotics_requirements()
-        return export_drobotics(self.model, self.args)
+        check_rdk_requirements()
+        return export_rdk(self.model, self.args)
 
     @try_export
     def export_executorch(self, prefix=colorstr("ExecuTorch:")):
