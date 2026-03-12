@@ -520,8 +520,6 @@ def check_drobotics_requirements():
                 "hbm_runtime not found. Please ensure it is installed on your RDK device. "
                 "See https://docs.ultralytics.com/guides/rdk-deployment/ for details."
             )
-                        "See https://docs.ultralytics.com/guides/rdk-deployment/ for details."
-                    )
 
 def check_executorch_requirements():
     """Check and install ExecuTorch requirements including platform-specific dependencies."""
