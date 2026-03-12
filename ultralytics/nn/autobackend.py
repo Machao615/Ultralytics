@@ -193,13 +193,13 @@ class AutoBackend(nn.Module):
             ncnn,
             imx,
             rknn,
-            drobotics,
+            rdk,
             pte,
             axelera,
             triton,
-        ) = self._model_type("" if nn_module else model)
-        fp16 &= pt or jit or onnx or xml or engine or nn_module or triton  # FP16
-        nhwc = coreml or saved_model or pb or tflite or edgetpu or rknn or drobotics  # BHWC formats (vs torch BCHW)
+            ) = self._model_type("" if nn_module else model)
+            fp16 &= pt or jit or onnx or xml or engine or nn_module or triton  # FP16
+            nhwc = coreml or saved_model or pb or tflite or edgetpu or rknn or rdk  # BHWC formats (vs torch BCHW)
         stride, ch = 32, 3  # default stride and channels
         end2end, dynamic = False, False
         metadata, task = None, None
@@ -605,17 +605,17 @@ class AutoBackend(nn.Module):
             metadata = w.parent / "metadata.yaml"
 
         # D-Robotics
-        elif drobotics:
+        elif rdk:
             LOGGER.info(f"Loading {w} for D-Robotics BPU inference...")
             try:
                 import hbm_runtime
             except ImportError:
-                check_drobotics_requirements()
+                check_rdk_requirements()
                 import hbm_runtime
 
             w = Path(w)
             if not w.is_file():  # if not *.bin
-                w = next(w.rglob("*.bin"))  # get *.bin file from *_drobotics_model dir
+                w = next(w.rglob("*.bin"))  # get *.bin file from *_rdk_model dir
             
             # Load model using hbm_runtime
             self.model = hbm_runtime.Model(str(w))
@@ -882,14 +882,14 @@ class AutoBackend(nn.Module):
             y = self.rknn_model.inference(inputs=im)
 
         # D-Robotics
-        elif self.drobotics:
-            from ultralytics.utils.export.drobotics import decode_drobotics
+        elif self.rdk:
+            from ultralytics.utils.export.rdk import decode_rdk
 
             im = im.cpu().numpy()
             y = self.model.forward(im)
             y = [x.data for x in y]
             # Unified decoding into (1, 4 + nc, N)
-            y = decode_drobotics(y, self.imgsz, score_thres=kwargs.get("conf", 0.25), nc=len(self.names))
+            y = decode_rdk(y, self.imgsz, score_thres=kwargs.get("conf", 0.25), nc=len(self.names))
 
         # Axelera
         elif self.axelera:

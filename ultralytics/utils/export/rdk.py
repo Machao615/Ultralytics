@@ -73,7 +73,7 @@ def bpu_classify_forward(self, x):
         return x.flatten(1)
     return self.linear(torch.flatten(self.pool(self.conv(x)), 1))
 
-def apply_drobotics_patches(model):
+def apply_rdk_patches(model):
     """Applies BPU-specific monkey patches to the model heads."""
     from ultralytics.nn.modules import Detect, Classify, Segment, Pose, OBB
     from ultralytics.nn.modules.head import v10Detect
@@ -104,13 +104,13 @@ def apply_drobotics_patches(model):
             m.forward = bpu_classify_forward.__get__(m, Classify)
             LOGGER.info(f"{colorstr('D-Robotics:')} Patched Classify head for BPU.")
 
-def export_drobotics(model, args):
+def export_rdk(model, args):
     """Export Ultralytics YOLO model to D-Robotics BPU .bin format using hb_mapper."""
     prefix = colorstr("D-Robotics:")
     if ARM64:
         raise RuntimeError(f"{prefix} Export is only supported on x86_64 Linux with hb_mapper toolchain.")
 
-    apply_drobotics_patches(model)
+    apply_rdk_patches(model)
     
     imgsz = args.imgsz
     if isinstance(imgsz, int):
@@ -160,7 +160,7 @@ def export_drobotics(model, args):
 
     return str(bin_path)
 
-def decode_drobotics(outputs, imgsz, score_thres=0.25, nc=80):
+def decode_rdk(outputs, imgsz, score_thres=0.25, nc=80):
     """Decodes D-Robotics BPU outputs into a single YOLO-format tensor."""
     strides = [8, 16, 32]
     all_preds = []

@@ -177,7 +177,7 @@ def export_formats():
         ["NCNN", "ncnn", "_ncnn_model", True, True, ["batch", "half"]],
         ["IMX", "imx", "_imx_model", True, True, ["int8", "fraction", "nms"]],
         ["RKNN", "rknn", "_rknn_model", False, False, ["batch", "name"]],
-        ["D-Robotics", "drobotics", ".bin", False, False, ["imgsz", "data"]],
+        ["D-Robotics", "rdk", ".bin", False, False, ["imgsz", "data"]],
         ["ExecuTorch", "executorch", "_executorch_model", True, False, ["batch"]],
         ["Axelera", "axelera", "_axelera_model", False, False, ["batch", "int8", "fraction"]],
     ]
@@ -366,6 +366,7 @@ class Exporter:
             ncnn,
             imx,
             rknn,
+            rdk,
             executorch,
             axelera,
         ) = flags  # export booleans
@@ -632,8 +633,8 @@ class Exporter:
             f[15] = self.export_executorch()
         if axelera:
             f[16] = self.export_axelera()
-        if fmt == "drobotics":
-            f[fmts.index("drobotics")] = self.export_drobotics()
+        if fmt == "rdk":
+            f[fmts.index("rdk")] = self.export_rdk()
 
         # Finish
         f = [str(x) for x in f if x]  # filter out '' and None

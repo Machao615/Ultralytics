@@ -507,7 +507,7 @@ def check_requirements(requirements=ROOT.parent / "requirements.txt", exclude=()
             return True
 
 
-def check_drobotics_requirements():
+def check_rdk_requirements():
     """Check and install D-Robotics export requirements."""
     if not (LINUX and ARM64):  # Only check on x86_64 Linux (for export)
         check_requirements("rdkx5-yolo-mapper", cmds="-i https://mirrors.aliyun.com/pypi/simple/")
