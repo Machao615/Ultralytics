@@ -111,6 +111,7 @@ from ultralytics.utils.checks import (
     check_apt_requirements,
     check_executorch_requirements,
     check_imgsz,
+    check_rdk_requirements,
     check_requirements,
     check_tensorrt,
     check_version,
