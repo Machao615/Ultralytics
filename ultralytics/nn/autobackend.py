@@ -197,10 +197,9 @@ class AutoBackend(nn.Module):
             pte,
             axelera,
             triton,
-            ) = self._model_type("" if nn_module else model)
-            fp16 &= pt or jit or onnx or xml or engine or nn_module or triton  # FP16
-            nhwc = coreml or saved_model or pb or tflite or edgetpu or rknn or rdk  # BHWC formats (vs torch BCHW)
-        stride, ch = 32, 3  # default stride and channels
+        ) = self._model_type("" if nn_module else model)
+        fp16 &= pt or jit or onnx or xml or engine or nn_module or triton  # FP16
+        nhwc = coreml or saved_model or pb or tflite or edgetpu or rknn or rdk  # BHWC formats (vs torch BCHW)        stride, ch = 32, 3  # default stride and channels
         end2end, dynamic = False, False
         metadata, task = None, None
 
