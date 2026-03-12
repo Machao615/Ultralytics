@@ -504,10 +504,24 @@ def check_requirements(requirements=ROOT.parent / "requirements.txt", exclude=()
                 LOGGER.warning(msg)
                 return False
         else:
-            return False
+            return True
 
-    return True
 
+def check_drobotics_requirements():
+    """Check and install D-Robotics export requirements."""
+    if not (LINUX and ARM64):  # Only check on x86_64 Linux (for export)
+        check_requirements("rdkx5-yolo-mapper", cmds="-i https://mirrors.aliyun.com/pypi/simple/")
+    else:
+        # On RDK Board (ARM64 Linux), requirements like hbm_runtime are usually pre-installed
+        try:
+            import hbm_runtime  # noqa: F401
+        except ImportError:
+            LOGGER.warning(
+                "hbm_runtime not found. Please ensure it is installed on your RDK device. "
+                "See https://docs.ultralytics.com/guides/rdk-deployment/ for details."
+            )
+                        "See https://docs.ultralytics.com/guides/rdk-deployment/ for details."
+                    )
 
 def check_executorch_requirements():
     """Check and install ExecuTorch requirements including platform-specific dependencies."""

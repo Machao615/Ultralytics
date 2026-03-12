@@ -92,6 +92,7 @@ export = [
     "onnx>=1.12.0; platform_system != 'Darwin'", # ONNX export
     "onnx>=1.12.0,<1.18.0; platform_system == 'Darwin'",  # TF inference hanging on MacOS (tested up to onnx==1.20.0)
     "onnxslim>=0.1.82",
+    "rdkx5-yolo-mapper; platform_machine == 'x86_64' and platform_system == 'Linux' and python_version == '3.10'", # D-Robotics RDK X5 Toolchain
     "coremltools>=9.0; platform_system != 'Windows' and python_version <= '3.13'", # CoreML supported on macOS and Linux
     "scikit-learn>=1.3.2; platform_system != 'Windows' and python_version <= '3.13'", # CoreML k-means quantization
     "openvino>=2024.0.0",  # OpenVINO export

@@ -177,6 +177,7 @@ def export_formats():
         ["NCNN", "ncnn", "_ncnn_model", True, True, ["batch", "half"]],
         ["IMX", "imx", "_imx_model", True, True, ["int8", "fraction", "nms"]],
         ["RKNN", "rknn", "_rknn_model", False, False, ["batch", "name"]],
+        ["D-Robotics", "drobotics", ".bin", False, False, ["imgsz", "data"]],
         ["ExecuTorch", "executorch", "_executorch_model", True, False, ["batch"]],
         ["Axelera", "axelera", "_axelera_model", False, False, ["batch", "int8", "fraction"]],
     ]
@@ -618,6 +619,8 @@ class Exporter:
             f[15] = self.export_executorch()
         if axelera:
             f[16] = self.export_axelera()
+        if fmt == "drobotics":
+            f[fmts.index("drobotics")] = self.export_drobotics()
 
         # Finish
         f = [str(x) for x in f if x]  # filter out '' and None
@@ -1207,6 +1210,14 @@ class Exporter:
         YAML.save(export_path / "metadata.yaml", self.metadata)
 
         return export_path
+
+    @try_export
+    def export_drobotics(self, prefix=colorstr("D-Robotics:")):
+        """Export YOLO model to D-Robotics BPU format."""
+        from ultralytics.utils.export.drobotics import export_drobotics
+
+        check_drobotics_requirements()
+        return export_drobotics(self.model, self.args)
 
     @try_export
     def export_executorch(self, prefix=colorstr("ExecuTorch:")):

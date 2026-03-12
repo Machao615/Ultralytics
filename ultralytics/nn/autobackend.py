@@ -193,12 +193,13 @@ class AutoBackend(nn.Module):
             ncnn,
             imx,
             rknn,
+            drobotics,
             pte,
             axelera,
             triton,
         ) = self._model_type("" if nn_module else model)
         fp16 &= pt or jit or onnx or xml or engine or nn_module or triton  # FP16
-        nhwc = coreml or saved_model or pb or tflite or edgetpu or rknn  # BHWC formats (vs torch BCHW)
+        nhwc = coreml or saved_model or pb or tflite or edgetpu or rknn or drobotics  # BHWC formats (vs torch BCHW)
         stride, ch = 32, 3  # default stride and channels
         end2end, dynamic = False, False
         metadata, task = None, None
@@ -603,6 +604,31 @@ class AutoBackend(nn.Module):
             rknn_model.init_runtime()
             metadata = w.parent / "metadata.yaml"
 
+        # D-Robotics
+        elif drobotics:
+            LOGGER.info(f"Loading {w} for D-Robotics BPU inference...")
+            try:
+                import hbm_runtime
+            except ImportError:
+                check_drobotics_requirements()
+                import hbm_runtime
+
+            w = Path(w)
+            if not w.is_file():  # if not *.bin
+                w = next(w.rglob("*.bin"))  # get *.bin file from *_drobotics_model dir
+            
+            # Load model using hbm_runtime
+            self.model = hbm_runtime.Model(str(w))
+            
+            # Get input/output information
+            self.input_properties = self.model.inputs[0].properties
+            self.output_properties = [o.properties for o in self.model.outputs]
+            
+            # Metadata usually resides in the same folder
+            metadata = w.parent / "metadata.yaml"
+            if not metadata.exists():
+                metadata = None
+
         # Axelera
         elif axelera:
             import os
@@ -854,6 +880,16 @@ class AutoBackend(nn.Module):
             im = (im.cpu().numpy() * 255).astype("uint8")
             im = im if isinstance(im, (list, tuple)) else [im]
             y = self.rknn_model.inference(inputs=im)
+
+        # D-Robotics
+        elif self.drobotics:
+            from ultralytics.utils.export.drobotics import decode_drobotics
+
+            im = im.cpu().numpy()
+            y = self.model.forward(im)
+            y = [x.data for x in y]
+            # Unified decoding into (1, 4 + nc, N)
+            y = decode_drobotics(y, self.imgsz, score_thres=kwargs.get("conf", 0.25), nc=len(self.names))
 
         # Axelera
         elif self.axelera:
