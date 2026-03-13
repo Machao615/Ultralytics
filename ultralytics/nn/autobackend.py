@@ -618,10 +618,10 @@ class AutoBackend(nn.Module):
                 w = next(w.rglob("*.bin"))  # get *.bin file from *_rdk_model dir
             
             # Load model using hbm_runtime correctly
-            self.model = hbm_runtime.HB_HBMRuntime(str(w))
-            self.model_name = self.model.model_names[0]
-            self.input_names = self.model.input_names[self.model_name]
-            self.output_names = self.model.output_names[self.model_name]
+            rdk_model = hbm_runtime.HB_HBMRuntime(str(w))
+            rdk_model_name = rdk_model.model_names[0]
+            rdk_input_names = rdk_model.input_names[rdk_model_name]
+            rdk_output_names = rdk_model.output_names[rdk_model_name]
             
             # Metadata usually resides in the same folder
             metadata = w.parent / "metadata.yaml"
