@@ -512,13 +512,19 @@ def check_rdk_requirements():
     if not (LINUX and ARM64):  # Only check on x86_64 Linux (for export)
         check_requirements("rdkx5-yolo-mapper", cmds="-i https://mirrors.aliyun.com/pypi/simple/")
     else:
-        # On RDK Board (ARM64 Linux), requirements like hbm_runtime are usually pre-installed
-        try:
-            import hbm_runtime  # noqa: F401
-        except ImportError:
+        # On ARM64 Linux, we expect this to be inference on a board
+        if is_rdk():
+            try:
+                import hbm_runtime  # noqa: F401
+            except ImportError:
+                LOGGER.warning(
+                    "hbm_runtime not found. Please ensure your RDK OS is correctly installed and updated. "
+                    "See https://developer.d-robotics.cc/ for details."
+                )
+        else:
             LOGGER.warning(
-                "hbm_runtime not found. Please ensure it is installed on your RDK device. "
-                "See https://docs.ultralytics.com/guides/rdk-deployment/ for details."
+                "You are attempting to run an RDK BPU model on a non-RDK ARM64 device. "
+                "Hardware acceleration via hbm_runtime is only supported on D-Robotics RDK devices (e.g., RDK X5)."
             )
 
 def check_executorch_requirements():
@@ -1022,6 +1028,25 @@ def is_rockchip():
             return False
     else:
         return False
+
+
+def is_rdk():
+    """Check if the current environment is running on a Horizon RDK device.
+
+    Returns:
+        (bool): True if running on a Horizon RDK device, False otherwise.
+    """
+    if LINUX and ARM64:
+        # Check soc_name for X5U or other RDK series
+        soc_name_path = Path("/sys/class/socinfo/soc_name")
+        if soc_name_path.exists():
+            try:
+                with open(soc_name_path, "r") as f:
+                    if "X5" in f.read().upper():
+                        return True
+            except OSError:
+                pass
+    return False
 
 
 def is_intel():
