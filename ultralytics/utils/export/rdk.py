@@ -168,12 +168,12 @@ def export_rdk(model, args, onnx_path=None):
         from . import torch2onnx
         torch2onnx(model, torch.zeros(1, 3, *imgsz).to(next(model.parameters()).device), str(onnx_path), opset=11)
     
-    onnx_path = Path(onnx_path)
+    onnx_path = Path(onnx_path).resolve()
     if not onnx_path.exists():
         raise FileNotFoundError(f"{prefix} Intermediate ONNX file not found at {onnx_path}")
 
     save_dir = getattr(args, "save_dir", onnx_path.parent) or onnx_path.parent
-    save_dir = Path(save_dir)
+    save_dir = Path(save_dir).resolve()
     ws_dir = save_dir / ".temporary_workspace"
     cal_data_dir = ws_dir / ".calibration_data"
     bpu_output_dir = ws_dir / "bpu_model_output"
