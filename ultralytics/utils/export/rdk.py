@@ -114,7 +114,8 @@ def _prepare_calibration_data(args, cal_data_dir, imgsz):
     os.makedirs(cal_data_dir, exist_ok=True)
     try:
         data = check_det_dataset(args.data)
-        val_path = data.get("val", "")
+        # Use 'train' for calibration, fallback to 'val' if not found
+        val_path = data.get("train", data.get("val", ""))
     except Exception as e:
         raise ValueError(f"Could not parse data YAML {args.data} for calibration: {e}")
         
