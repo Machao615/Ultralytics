@@ -255,9 +255,13 @@ def decode_rdk(outputs, imgsz, score_thres=0.25, nc=80):
     safe_thres = max(min(score_thres, 1.0 - 1e-6), 1e-6)
     logit_thres = -np.log(1.0 / safe_thres - 1.0)
     
+    # Infer DFL REG size from the first box output shape (e.g. if 64, REG=16)
+    reg = outputs[1].shape[-1] // 4
+    weights_static = np.arange(reg, dtype=np.float32)
+    
     for i, stride in enumerate(strides):
         cls_feat = outputs[i * 2]      # (1, H, W, nc)
-        box_feat = outputs[i * 2 + 1]  # (1, H, W, 4)
+        box_feat = outputs[i * 2 + 1]  # (1, H, W, 4 * reg)
         
         max_logits = np.max(cls_feat[0], axis=-1)
         mask = max_logits >= logit_thres
@@ -266,17 +270,28 @@ def decode_rdk(outputs, imgsz, score_thres=0.25, nc=80):
             continue
             
         valid_cls_logits = cls_feat[0][mask]
-        valid_box_raw = box_feat[0][mask]
+        valid_box_raw = box_feat[0][mask] # (N, 4 * reg)
+        
+        # --- DFL Decoding ---
+        # Reshape to (N, 4, reg)
+        box_reshaped = valid_box_raw.reshape(-1, 4, reg)
+        # Apply Softmax over the 'reg' dimension. Prevent overflow by subtracting max.
+        max_vals = np.max(box_reshaped, axis=-1, keepdims=True)
+        exp_vals = np.exp(box_reshaped - max_vals)
+        box_softmax = exp_vals / np.sum(exp_vals, axis=-1, keepdims=True)
+        # Expected value (weighted sum) to get l, t, r, b
+        ltrb = np.sum(box_softmax * weights_static, axis=-1) # (N, 4)
         
         h, w = cls_feat.shape[1:3]
         grid_y, grid_x = np.indices((h, w))
         valid_grid_x = grid_x[mask] + 0.5
         valid_grid_y = grid_y[mask] + 0.5
         
-        x1 = (valid_grid_x - valid_box_raw[:, 0]) * stride
-        y1 = (valid_grid_y - valid_box_raw[:, 1]) * stride
-        x2 = (valid_grid_x + valid_box_raw[:, 2]) * stride
-        y2 = (valid_grid_y + valid_box_raw[:, 3]) * stride
+        # Calculate pixel coordinates
+        x1 = (valid_grid_x - ltrb[:, 0]) * stride
+        y1 = (valid_grid_y - ltrb[:, 1]) * stride
+        x2 = (valid_grid_x + ltrb[:, 2]) * stride
+        y2 = (valid_grid_y + ltrb[:, 3]) * stride
 
         # Convert to cx, cy, w, h (expected by Ultralytics NMS)
         cx = (x1 + x2) / 2.0
