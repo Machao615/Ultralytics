@@ -124,7 +124,8 @@ def export_rdk(model, args, onnx_path=None):
     if not onnx_path.exists():
         raise FileNotFoundError(f"{prefix} Intermediate ONNX file not found at {onnx_path}")
 
-    save_dir = Path(args.save_dir or ".")
+    save_dir = getattr(args, "save_dir", onnx_path.parent) or onnx_path.parent
+    save_dir = Path(save_dir)
     config_path = save_dir / "hb_mapper_config.yaml"
     bin_path = onnx_path.with_suffix(".bin")
     
