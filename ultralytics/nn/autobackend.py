@@ -914,7 +914,7 @@ class AutoBackend(nn.Module):
                 nv12_flat[h * w:] = uv_arr.flatten()
                 
                 # Try to reshape dynamically based on input properties if available, otherwise flat
-                input_shape = getattr(self.model, "input_shapes", {}).get(self.model_name, {}).get(self.input_names[0], None)
+                input_shape = getattr(self.rdk_model, "input_shapes", {}).get(self.rdk_model_name, {}).get(self.rdk_input_names[0], None)
                 if input_shape is not None and np.prod(input_shape) == len(nv12_flat):
                     single_nv12s.append(nv12_flat.reshape(input_shape[1:])) # Exclude batch dim
                 else:
@@ -922,24 +922,24 @@ class AutoBackend(nn.Module):
                     single_nv12s.append(nv12_flat.reshape(int(h * 1.5), w, 1))
                 
             input_tensor = {}
-            if len(self.input_names) == 2:
+            if len(self.rdk_input_names) == 2:
                 # S100 style: separate Y and UV planes
                 input_tensor = {
-                    self.model_name: {
-                        self.input_names[0]: np.stack(y_planes, axis=0),
-                        self.input_names[1]: np.stack(uv_planes, axis=0)
+                    self.rdk_model_name: {
+                        self.rdk_input_names[0]: np.stack(y_planes, axis=0),
+                        self.rdk_input_names[1]: np.stack(uv_planes, axis=0)
                     }
                 }
             else:
                 # X5 style: single NV12 tensor
                 input_tensor = {
-                    self.model_name: {
-                        self.input_names[0]: np.stack(single_nv12s, axis=0)
+                    self.rdk_model_name: {
+                        self.rdk_input_names[0]: np.stack(single_nv12s, axis=0)
                     }
                 }
             
-            outputs = self.model.run(input_tensor)[self.model_name]
-            y = [outputs[name] for name in self.output_names]
+            outputs = self.rdk_model.run(input_tensor)[self.rdk_model_name]
+            y = [outputs[name] for name in self.rdk_output_names]
             
             # 针对分类任务直接返回原始输出，针对检测/姿态/分割任务进行解码
             if self.task == "classify":
