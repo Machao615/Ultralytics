@@ -635,6 +635,9 @@ class Exporter:
         if axelera:
             f[16] = self.export_axelera()
         if fmt == "rdk":
+            # Ensure metadata is saved before RDK compilation
+            bin_path = self.file.with_suffix(".bin")
+            YAML.save(bin_path.parent / "metadata.yaml", self.metadata)
             f[fmts.index("rdk")] = self.export_rdk()
 
         # Finish
