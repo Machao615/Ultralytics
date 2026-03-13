@@ -941,7 +941,11 @@ class AutoBackend(nn.Module):
             outputs = self.model.run(input_tensor)[self.model_name]
             y = [outputs[name] for name in self.output_names]
             
-            # Unified decoding into (1, 4 + nc, N)
+            # 针对分类任务直接返回原始输出，针对检测/姿态/分割任务进行解码
+            if self.task == "classify":
+                return self.from_numpy(y[0])
+            
+            # Unified decoding into (1, 4 + nc, N) for detection tasks
             y = decode_rdk(y, self.imgsz, score_thres=kwargs.get("conf", 0.25), nc=len(self.names))
 
         # Axelera
