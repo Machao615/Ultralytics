@@ -885,8 +885,39 @@ class AutoBackend(nn.Module):
             from ultralytics.utils.export.rdk import decode_rdk
 
             im = im.cpu().numpy()
-            y = self.model.forward(im)
-            y = [x.data for x in y]
+            
+            # Since BPU expects NV12 input defined by our YAML config (input_type_rt: 'nv12'), 
+            # and Ultralytics AutoBackend receives a standard FP16/FP32 BHWC RGB tensor.
+            if im.dtype != np.uint8:
+                im = (im * 255.0).clip(0, 255).astype(np.uint8)
+            
+            y_planes, uv_planes = [], []
+            for img in im:
+                # RGB -> BGR
+                bgr_img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+                h, w = bgr_img.shape[:2]
+                
+                # BGR -> YUV420p -> NV12
+                yuv420p = cv2.cvtColor(bgr_img, cv2.COLOR_BGR2YUV_I420)
+                yuv420p = yuv420p.reshape((h * w * 3 // 2,))
+                y_arr = yuv420p[:h * w].reshape((h, w, 1))
+                u_arr = yuv420p[h * w : h * w + h * w // 4].reshape((h // 2, w // 2))
+                v_arr = yuv420p[h * w + h * w // 4 :].reshape((h // 2, w // 2))
+                uv_arr = np.stack((u_arr, v_arr), axis=-1)
+                
+                y_planes.append(y_arr)
+                uv_planes.append(uv_arr)
+                
+            input_tensor = {
+                self.model_name: {
+                    self.input_names[0]: np.stack(y_planes, axis=0),
+                    self.input_names[1]: np.stack(uv_planes, axis=0)
+                }
+            }
+            
+            outputs = self.model.run(input_tensor)[self.model_name]
+            y = [outputs[name] for name in self.output_names]
+            
             # Unified decoding into (1, 4 + nc, N)
             y = decode_rdk(y, self.imgsz, score_thres=kwargs.get("conf", 0.25), nc=len(self.names))
 
