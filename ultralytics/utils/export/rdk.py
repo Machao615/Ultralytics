@@ -104,23 +104,25 @@ def apply_rdk_patches(model):
             m.forward = bpu_classify_forward.__get__(m, Classify)
             LOGGER.info(f"{colorstr('D-Robotics:')} Patched Classify head for BPU.")
 
-def export_rdk(model, args):
+def export_rdk(model, args, onnx_path=None):
     """Export Ultralytics YOLO model to D-Robotics BPU .bin format using hb_mapper."""
     prefix = colorstr("D-Robotics:")
     if ARM64:
         raise RuntimeError(f"{prefix} Export is only supported on x86_64 Linux with hb_mapper toolchain.")
 
-    apply_rdk_patches(model)
+    if onnx_path is None:
+        # Fallback if no onnx_path provided, though preferred to be passed from Exporter
+        imgsz = args.imgsz
+        if isinstance(imgsz, int):
+            imgsz = (imgsz, imgsz)
+        
+        onnx_path = Path(args.model).with_suffix(".onnx")
+        from . import torch2onnx
+        torch2onnx(model, torch.zeros(1, 3, *imgsz).to(next(model.parameters()).device), str(onnx_path), opset=11)
     
-    imgsz = args.imgsz
-    if isinstance(imgsz, int):
-        imgsz = (imgsz, imgsz)
-    
-    onnx_path = Path(args.model).with_suffix(".onnx")
-    model.export(format="onnx", imgsz=args.imgsz, dynamic=False, opset=11)
-    
+    onnx_path = Path(onnx_path)
     if not onnx_path.exists():
-        raise FileNotFoundError(f"{prefix} Intermediate ONNX export failed.")
+        raise FileNotFoundError(f"{prefix} Intermediate ONNX file not found at {onnx_path}")
 
     save_dir = Path(args.save_dir or ".")
     config_path = save_dir / "hb_mapper_config.yaml"

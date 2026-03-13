@@ -1229,10 +1229,21 @@ class Exporter:
     @try_export
     def export_rdk(self, prefix=colorstr("D-Robotics:")):
         """Export YOLO model to D-Robotics BPU format."""
-        from ultralytics.utils.export.rdk import export_rdk
+        from ultralytics.utils.export.rdk import apply_rdk_patches, export_rdk
 
         check_rdk_requirements()
-        return export_rdk(self.model, self.args)
+        # 1. Apply BPU specific patches to the model heads
+        apply_rdk_patches(self.model)
+        
+        # 2. Export to intermediate ONNX using the built-in method
+        # We use opset 11 as it's well supported by BPU hb_mapper
+        old_opset = self.args.opset
+        self.args.opset = 11
+        onnx_file = self.export_onnx()
+        self.args.opset = old_opset # Restore original opset
+        
+        # 3. Call the BPU compiler with the generated ONNX
+        return export_rdk(self.model, self.args, onnx_path=onnx_file)
 
     @try_export
     def export_executorch(self, prefix=colorstr("ExecuTorch:")):
