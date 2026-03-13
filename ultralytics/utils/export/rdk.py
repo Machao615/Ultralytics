@@ -277,14 +277,19 @@ def decode_rdk(outputs, imgsz, score_thres=0.25, nc=80):
         y1 = (valid_grid_y - valid_box_raw[:, 1]) * stride
         x2 = (valid_grid_x + valid_box_raw[:, 2]) * stride
         y2 = (valid_grid_y + valid_box_raw[:, 3]) * stride
-        
+
+        # Convert to cx, cy, w, h (expected by Ultralytics NMS)
+        cx = (x1 + x2) / 2.0
+        cy = (y1 + y2) / 2.0
+        w_box = x2 - x1
+        h_box = y2 - y1
+
         valid_cls_scores = 1.0 / (1.0 + np.exp(-valid_cls_logits))
-        
+
         layer_pred = np.concatenate([
-            x1[:, None], y1[:, None], x2[:, None], y2[:, None], 
+            cx[:, None], cy[:, None], w_box[:, None], h_box[:, None],
             valid_cls_scores
-        ], axis=-1)
-        
+        ], axis=-1)        
         all_preds.append(layer_pred)
         
     if not all_preds:
