@@ -891,7 +891,7 @@ class AutoBackend(nn.Module):
             if im.dtype != np.uint8:
                 im = (im * 255.0).clip(0, 255).astype(np.uint8)
             
-            y_planes, uv_planes = [], []
+            y_planes, uv_planes, single_nv12s = [], [], []
             for img in im:
                 # RGB -> BGR
                 bgr_img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
@@ -908,12 +908,35 @@ class AutoBackend(nn.Module):
                 y_planes.append(y_arr)
                 uv_planes.append(uv_arr)
                 
-            input_tensor = {
-                self.model_name: {
-                    self.input_names[0]: np.stack(y_planes, axis=0),
-                    self.input_names[1]: np.stack(uv_planes, axis=0)
+                # Prepare single NV12 array for X5
+                nv12_flat = np.empty((h * w * 3 // 2,), dtype=np.uint8)
+                nv12_flat[:h * w] = y_arr.flatten()
+                nv12_flat[h * w:] = uv_arr.flatten()
+                
+                # Try to reshape dynamically based on input properties if available, otherwise flat
+                input_shape = getattr(self.model, "input_shapes", {}).get(self.model_name, {}).get(self.input_names[0], None)
+                if input_shape is not None and np.prod(input_shape) == len(nv12_flat):
+                    single_nv12s.append(nv12_flat.reshape(input_shape[1:])) # Exclude batch dim
+                else:
+                    # Fallback to standard NHWC representation for NV12
+                    single_nv12s.append(nv12_flat.reshape(int(h * 1.5), w, 1))
+                
+            input_tensor = {}
+            if len(self.input_names) == 2:
+                # S100 style: separate Y and UV planes
+                input_tensor = {
+                    self.model_name: {
+                        self.input_names[0]: np.stack(y_planes, axis=0),
+                        self.input_names[1]: np.stack(uv_planes, axis=0)
+                    }
                 }
-            }
+            else:
+                # X5 style: single NV12 tensor
+                input_tensor = {
+                    self.model_name: {
+                        self.input_names[0]: np.stack(single_nv12s, axis=0)
+                    }
+                }
             
             outputs = self.model.run(input_tensor)[self.model_name]
             y = [outputs[name] for name in self.output_names]
