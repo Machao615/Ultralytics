@@ -114,15 +114,17 @@ def _prepare_calibration_data(args, cal_data_dir, imgsz):
     os.makedirs(cal_data_dir, exist_ok=True)
     try:
         data = check_det_dataset(args.data)
-        # Use 'train' for calibration, fallback to 'val' if not found
-        val_path = data.get("train", data.get("val", ""))
+        # Strictly use 'train' for calibration, as it provides better diversity
+        train_path = data.get("train", "")
+        if not train_path:
+            raise ValueError(f"No 'train' split found in {args.data}. Calibration requires training data.")
     except Exception as e:
         raise ValueError(f"Could not parse data YAML {args.data} for calibration: {e}")
         
-    if isinstance(val_path, list):
-        val_path = val_path[0]
+    if isinstance(train_path, list):
+        train_path = train_path[0]
         
-    img_dir = Path(val_path)
+    img_dir = Path(train_path)
     if img_dir.is_file() and img_dir.suffix == ".txt":
         with open(img_dir, "r") as f:
             lines = [x.strip() for x in f.read().splitlines() if x.strip()]
@@ -133,14 +135,16 @@ def _prepare_calibration_data(args, cal_data_dir, imgsz):
     img_paths = [p for p in img_paths if p.suffix.lower() in [".jpg", ".jpeg", ".png", ".bmp"]]
     
     if not img_paths:
-        raise ValueError(f"No images found for calibration in {val_path}")
+        raise ValueError(f"No images found for calibration in {train_path}")
         
+    import random
     sample_num = min(args.batch if hasattr(args, 'batch') and args.batch > 1 else 20, len(img_paths))
-    img_paths = img_paths[:sample_num]
+    # Randomly select calibration images to ensure better representation
+    img_paths = random.sample(img_paths, sample_num)
     
     width, height = (imgsz, imgsz) if isinstance(imgsz, int) else (imgsz[1], imgsz[0])
     
-    LOGGER.info(f"Preparing {len(img_paths)} calibration images for BPU...")
+    LOGGER.info(f"Preparing {len(img_paths)} random calibration images from train split for BPU...")
     for idx, img_path in enumerate(img_paths):
         img = cv2.imread(str(img_path))
         if img is None:
