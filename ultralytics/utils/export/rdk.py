@@ -365,7 +365,7 @@ def decode_rdk(outputs, imgsz, score_thres=0.25, nc=80):
     return torch.from_numpy(final_pred).permute(1, 0).unsqueeze(0).float()
 
 def decode_rdk26(outputs, imgsz, score_thres=0.25, nc=80):
-    """Decodes YOLO26 Anchor-Free BPU outputs."""
+    """Decodes YOLO26 Anchor-Free BPU outputs into final (1, N, 6) detection format."""
     strides = [8, 16, 32]
     all_preds = []
     
@@ -390,27 +390,26 @@ def decode_rdk26(outputs, imgsz, score_thres=0.25, nc=80):
         valid_grid_x = grid_x[mask] + 0.5
         valid_grid_y = grid_y[mask] + 0.5
         
+        # Calculate pixel coordinates
         x1 = (valid_grid_x - ltrb[:, 0]) * stride
         y1 = (valid_grid_y - ltrb[:, 1]) * stride
         x2 = (valid_grid_x + ltrb[:, 2]) * stride
         y2 = (valid_grid_y + ltrb[:, 3]) * stride
 
-        cx = (x1 + x2) / 2.0
-        cy = (y1 + y2) / 2.0
-        w_box = x2 - x1
-        h_box = y2 - y1
-
         valid_cls_scores = 1.0 / (1.0 + np.exp(-valid_cls_logits))
+        
+        # End-to-End optimization: pick max class score and ID directly
+        max_scores = np.max(valid_cls_scores, axis=-1)
+        class_ids = np.argmax(valid_cls_scores, axis=-1)
 
-        layer_pred = np.concatenate([
-            cx[:, None], cy[:, None], w_box[:, None], h_box[:, None],
-            valid_cls_scores
-        ], axis=-1)        
+        layer_pred = np.stack([
+            x1, y1, x2, y2, max_scores, class_ids.astype(np.float32)
+        ], axis=-1) # (N, 6)
         all_preds.append(layer_pred)
         
     if not all_preds:
-        return torch.zeros((1, 4 + nc, 0))
+        return torch.zeros((1, 0, 6))
         
     final_pred = np.concatenate(all_preds, axis=0)
-    # Return as (1, 4+nc, N) for compatibility with Ultralytics NMS
-    return torch.from_numpy(final_pred).permute(1, 0).unsqueeze(0).float()
+    # Return as (1, N, 6) which is expected by Predictor when end2end=True
+    return torch.from_numpy(final_pred).unsqueeze(0).float()
