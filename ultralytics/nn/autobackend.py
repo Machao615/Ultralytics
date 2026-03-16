@@ -109,6 +109,7 @@ class AutoBackend(nn.Module):
             | NCNN                  | *_ncnn_model/     |
             | IMX                   | *_imx_model/      |
             | RKNN                  | *_rknn_model/     |
+            | D-Robotics            | *_rdk_model/      |
             | Triton Inference      | triton://model    |
             | ExecuTorch            | *.pte             |
             | Axelera               | *_axelera_model/  |
@@ -137,6 +138,7 @@ class AutoBackend(nn.Module):
         ncnn (bool): Whether the model is an NCNN model.
         imx (bool): Whether the model is an IMX model.
         rknn (bool): Whether the model is an RKNN model.
+        rdk (bool): Whether the model is a D-Robotics BPU model.
         triton (bool): Whether the model is a Triton Inference Server model.
         pte (bool): Whether the model is a PyTorch ExecuTorch model.
         axelera (bool): Whether the model is an Axelera model.
@@ -941,12 +943,13 @@ class AutoBackend(nn.Module):
             outputs = self.rdk_model.run(input_tensor)[self.rdk_model_name]
             y = [outputs[name] for name in self.rdk_output_names]
             
-            # 针对分类任务直接返回原始输出，针对检测/姿态/分割任务进行解码
+            # Return raw output for classification, decode for detection/pose/segmentation
             if self.task == "classify":
                 return self.from_numpy(y[0])
-            
+
             # Unified decoding into (1, 4 + nc, N) for detection tasks
             y = decode_rdk(y, self.imgsz, score_thres=kwargs.get("conf", 0.25), nc=len(self.names))
+
 
         # Axelera
         elif self.axelera:

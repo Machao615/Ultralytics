@@ -1030,11 +1030,11 @@ def is_rockchip():
         return False
 
 
-def is_rdk():
+def is_rdk() -> bool:
     """Check if the current environment is running on a Horizon RDK device.
 
     Returns:
-        (bool): True if running on a Horizon RDK device, False otherwise.
+        (bool): True if running on a Horizon RDK device (X5, X5U, etc.), False otherwise.
     """
     if LINUX and ARM64:
         # Check soc_name for X5U or other RDK series

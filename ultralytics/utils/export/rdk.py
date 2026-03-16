@@ -19,9 +19,12 @@ from ultralytics.data.utils import check_det_dataset
 def bpu_detect_forward(self, x):
     """YOLO Detect Head Modified for D-Robotics BPU."""
     res = []
+    # Support YOLO26/v10 one2one weights
+    cv3 = self.one2one_cv3 if hasattr(self, "one2one_cv3") else self.cv3
+    cv2 = self.one2one_cv2 if hasattr(self, "one2one_cv2") else self.cv2
     for i in range(self.nl):
-        res.append(self.cv3[i](x[i]).permute(0, 2, 3, 1).contiguous())  # cls
-        res.append(self.cv2[i](x[i]).permute(0, 2, 3, 1).contiguous())  # bbox
+        res.append(cv3[i](x[i]).permute(0, 2, 3, 1).contiguous())  # cls
+        res.append(cv2[i](x[i]).permute(0, 2, 3, 1).contiguous())  # bbox
     return res
 
 def bpu_v10_detect_forward(self, x):
@@ -35,29 +38,41 @@ def bpu_v10_detect_forward(self, x):
 def bpu_segment_forward(self, x):
     """YOLO Segment Head Modified for D-Robotics BPU."""
     res = []
+    # Support YOLO26/v10 one2one weights
+    cv2 = self.one2one_cv2 if hasattr(self, "one2one_cv2") else self.cv2
+    cv3 = self.one2one_cv3 if hasattr(self, "one2one_cv3") else self.cv3
+    cv4 = self.one2one_cv4 if hasattr(self, "one2one_cv4") else self.cv4
     for i in range(self.nl):
-        res.append(self.cv3[i](x[i]).permute(0, 2, 3, 1).contiguous())  # cls
-        res.append(self.cv2[i](x[i]).permute(0, 2, 3, 1).contiguous())  # bbox
-        res.append(self.cv4[i](x[i]).permute(0, 2, 3, 1).contiguous())  # proto weights
+        res.append(cv3[i](x[i]).permute(0, 2, 3, 1).contiguous())  # cls
+        res.append(cv2[i](x[i]).permute(0, 2, 3, 1).contiguous())  # bbox
+        res.append(cv4[i](x[i]).permute(0, 2, 3, 1).contiguous())  # proto weights
     res.append(self.proto(x[0]).permute(0, 2, 3, 1).contiguous())       # proto mask
     return res
 
 def bpu_pose_forward(self, x):
     """YOLO Pose Head Modified for D-Robotics BPU."""
     res = []
+    # Support YOLO26/v10 one2one weights
+    cv2 = self.one2one_cv2 if hasattr(self, "one2one_cv2") else self.cv2
+    cv3 = self.one2one_cv3 if hasattr(self, "one2one_cv3") else self.cv3
+    cv4 = self.one2one_cv4 if hasattr(self, "one2one_cv4") else self.cv4
     for i in range(self.nl):
-        res.append(self.cv3[i](x[i]).permute(0, 2, 3, 1).contiguous())  # cls
-        res.append(self.cv2[i](x[i]).permute(0, 2, 3, 1).contiguous())  # bbox
-        res.append(self.cv4[i](x[i]).permute(0, 2, 3, 1).contiguous())  # kpts
+        res.append(cv3[i](x[i]).permute(0, 2, 3, 1).contiguous())  # cls
+        res.append(cv2[i](x[i]).permute(0, 2, 3, 1).contiguous())  # bbox
+        res.append(cv4[i](x[i]).permute(0, 2, 3, 1).contiguous())  # kpts
     return res
 
 def bpu_obb_forward(self, x):
     """YOLO OBB Head Modified for D-Robotics BPU."""
     res = []
+    # Support YOLO26/v10 one2one weights
+    cv2 = self.one2one_cv2 if hasattr(self, "one2one_cv2") else self.cv2
+    cv3 = self.one2one_cv3 if hasattr(self, "one2one_cv3") else self.cv3
+    cv4 = self.one2one_cv4 if hasattr(self, "one2one_cv4") else self.cv4
     for i in range(self.nl):
-        res.append(self.cv3[i](x[i]).permute(0, 2, 3, 1).contiguous())  # cls
-        res.append(self.cv2[i](x[i]).permute(0, 2, 3, 1).contiguous())  # bbox
-        res.append(self.cv4[i](x[i]).permute(0, 2, 3, 1).contiguous())  # theta logits
+        res.append(cv3[i](x[i]).permute(0, 2, 3, 1).contiguous())  # cls
+        res.append(cv2[i](x[i]).permute(0, 2, 3, 1).contiguous())  # bbox
+        res.append(cv4[i](x[i]).permute(0, 2, 3, 1).contiguous())  # theta logits
     return res
 
 def bpu_classify_forward(self, x):
@@ -77,25 +92,48 @@ def bpu_classify_forward(self, x):
 
 def apply_rdk_patches(model):
     """Applies BPU-specific monkey patches to the model heads."""
-    from ultralytics.nn.modules import Detect, Classify, Segment, Pose, OBB
-    from ultralytics.nn.modules.head import v10Detect
-    
+    from ultralytics.nn.modules import (
+        OBB,
+        OBB26,
+        Classify,
+        Detect,
+        Pose,
+        Pose26,
+        Segment,
+        Segment26,
+        YOLOESegment26,
+        v10Detect,
+    )
+
+    # Detect if this is an end-to-end (one2one) model
+    is_end2end = False
     for m in model.modules():
-        if isinstance(m, Detect) and not isinstance(m, (Segment, Pose, OBB)):
+        if hasattr(m, "one2one_cv2") and hasattr(m, "one2one_cv3"):
+            is_end2end = True
+            break
+    
+    if is_end2end:
+        LOGGER.info(f"{colorstr('D-Robotics:')} End-to-End (One2One) architecture detected. Post-process will skip NMS.")
+        # Store end2end flag in the model for the exporter to pick up
+        if hasattr(model, "args"):
+            model.args["end2end"] = True
+
+    for m in model.modules():
+        if isinstance(m, Detect) and not isinstance(m, (Segment, Pose, OBB, Segment26, Pose26, OBB26, YOLOESegment26)):
             m.forward = bpu_detect_forward.__get__(m, Detect)
             LOGGER.info(f"{colorstr('D-Robotics:')} Patched Detect head for BPU.")
         elif isinstance(m, v10Detect):
             m.forward = bpu_v10_detect_forward.__get__(m, v10Detect)
             LOGGER.info(f"{colorstr('D-Robotics:')} Patched YOLOv10 Detect head for BPU.")
-        elif isinstance(m, Segment):
-            m.forward = bpu_segment_forward.__get__(m, Segment)
-            LOGGER.info(f"{colorstr('D-Robotics:')} Patched Segment head for BPU.")
-        elif isinstance(m, Pose):
-            m.forward = bpu_pose_forward.__get__(m, Pose)
-            LOGGER.info(f"{colorstr('D-Robotics:')} Patched Pose head for BPU.")
-        elif isinstance(m, OBB):
-            m.forward = bpu_obb_forward.__get__(m, OBB)
-            LOGGER.info(f"{colorstr('D-Robotics:')} Patched OBB head for BPU.")
+        elif isinstance(m, (Segment, Segment26, YOLOESegment26)):
+            m.forward = bpu_segment_forward.__get__(m, type(m))
+            LOGGER.info(f"{colorstr('D-Robotics:')} Patched Segment head ({type(m).__name__}) for BPU.")
+        elif isinstance(m, (Pose, Pose26)):
+            m.forward = bpu_pose_forward.__get__(m, type(m))
+            LOGGER.info(f"{colorstr('D-Robotics:')} Patched Pose head ({type(m).__name__}) for BPU.")
+        elif isinstance(m, (OBB, OBB26)):
+            m.forward = bpu_obb_forward.__get__(m, type(m))
+            LOGGER.info(f"{colorstr('D-Robotics:')} Patched OBB head ({type(m).__name__}) for BPU.")
         elif isinstance(m, Classify):
             # Convert Linear to Conv2d 1x1 for Classify
             in_features = m.linear.in_features
@@ -194,7 +232,8 @@ def export_rdk(model, args, onnx_path=None):
 
     model_name = onnx_path.stem
     output_model_prefix = f"{model_name}_bayese_{imgsz[1]}x{imgsz[0]}_nv12"
-    bin_path = onnx_path.with_suffix(".bin")
+    model_dir = onnx_path.with_name(f"{model_name}_rdk_model")
+    bin_path = model_dir / f"{model_name}.bin"
     
     yaml_content = f'''model_parameters:
   onnx_model: '{str(onnx_path)}'
@@ -231,11 +270,20 @@ compiler_parameters:
         os.chdir(ws_dir)
         subprocess.run(["hb_mapper", "makertbin", "--config", "hb_mapper_config.yaml", "--model-type", "onnx"], check=True)
         
-        # Find the output bin file
+        # Create output directory
+        model_dir.mkdir(parents=True, exist_ok=True)
+
+        # Find and move the output bin file
         compiled_bin = next(bpu_output_dir.rglob("*.bin"), None)
         if compiled_bin:
             shutil.copy(compiled_bin, bin_path)
-            LOGGER.info(f"{prefix} Export success: {bin_path}")
+            
+            # Move metadata.yaml into the model directory
+            metadata_path = onnx_path.parent / "metadata.yaml"
+            if metadata_path.exists():
+                shutil.move(str(metadata_path), str(model_dir / "metadata.yaml"))
+                
+            LOGGER.info(f"{prefix} Export success: {model_dir}")
         else:
             LOGGER.error(f"{prefix} Compilation finished but .bin file not found.")
             return None
@@ -245,18 +293,26 @@ compiler_parameters:
     finally:
         os.chdir(original_cwd)
 
-    return str(bin_path)
+    return str(model_dir)
 
 def decode_rdk(outputs, imgsz, score_thres=0.25, nc=80):
-    """Decodes D-Robotics BPU outputs into a single YOLO-format tensor."""
+    """Decodes D-Robotics BPU outputs into a single YOLO-format tensor.
+    Auto-detects between DFL and Anchor-Free formats based on box tensor shape.
+    """
+    # Infer DFL REG size from the first box output shape
+    # YOLOv8/11: 64 (reg=16)
+    # YOLO26: 4 (reg=1, anchor-free)
+    reg = outputs[1].shape[-1] // 4
+    
+    if reg == 1:
+        return decode_rdk26(outputs, imgsz, score_thres, nc)
+    
     strides = [8, 16, 32]
     all_preds = []
     
     safe_thres = max(min(score_thres, 1.0 - 1e-6), 1e-6)
     logit_thres = -np.log(1.0 / safe_thres - 1.0)
     
-    # Infer DFL REG size from the first box output shape (e.g. if 64, REG=16)
-    reg = outputs[1].shape[-1] // 4
     weights_static = np.arange(reg, dtype=np.float32)
     
     for i, stride in enumerate(strides):
@@ -273,13 +329,10 @@ def decode_rdk(outputs, imgsz, score_thres=0.25, nc=80):
         valid_box_raw = box_feat[0][mask] # (N, 4 * reg)
         
         # --- DFL Decoding ---
-        # Reshape to (N, 4, reg)
         box_reshaped = valid_box_raw.reshape(-1, 4, reg)
-        # Apply Softmax over the 'reg' dimension. Prevent overflow by subtracting max.
         max_vals = np.max(box_reshaped, axis=-1, keepdims=True)
         exp_vals = np.exp(box_reshaped - max_vals)
         box_softmax = exp_vals / np.sum(exp_vals, axis=-1, keepdims=True)
-        # Expected value (weighted sum) to get l, t, r, b
         ltrb = np.sum(box_softmax * weights_static, axis=-1) # (N, 4)
         
         h, w = cls_feat.shape[1:3]
@@ -287,13 +340,11 @@ def decode_rdk(outputs, imgsz, score_thres=0.25, nc=80):
         valid_grid_x = grid_x[mask] + 0.5
         valid_grid_y = grid_y[mask] + 0.5
         
-        # Calculate pixel coordinates
         x1 = (valid_grid_x - ltrb[:, 0]) * stride
         y1 = (valid_grid_y - ltrb[:, 1]) * stride
         x2 = (valid_grid_x + ltrb[:, 2]) * stride
         y2 = (valid_grid_y + ltrb[:, 3]) * stride
 
-        # Convert to cx, cy, w, h (expected by Ultralytics NMS)
         cx = (x1 + x2) / 2.0
         cy = (y1 + y2) / 2.0
         w_box = x2 - x1
@@ -311,4 +362,55 @@ def decode_rdk(outputs, imgsz, score_thres=0.25, nc=80):
         return torch.zeros((1, 4 + nc, 0))
         
     final_pred = np.concatenate(all_preds, axis=0)
+    return torch.from_numpy(final_pred).permute(1, 0).unsqueeze(0).float()
+
+def decode_rdk26(outputs, imgsz, score_thres=0.25, nc=80):
+    """Decodes YOLO26 Anchor-Free BPU outputs."""
+    strides = [8, 16, 32]
+    all_preds = []
+    
+    safe_thres = max(min(score_thres, 1.0 - 1e-6), 1e-6)
+    logit_thres = -np.log(1.0 / safe_thres - 1.0)
+    
+    for i, stride in enumerate(strides):
+        cls_feat = outputs[i * 2]      # (1, H, W, nc)
+        box_feat = outputs[i * 2 + 1]  # (1, H, W, 4)
+        
+        max_logits = np.max(cls_feat[0], axis=-1)
+        mask = max_logits >= logit_thres
+        
+        if not np.any(mask):
+            continue
+            
+        valid_cls_logits = cls_feat[0][mask]
+        ltrb = box_feat[0][mask] # (N, 4)
+        
+        h, w = cls_feat.shape[1:3]
+        grid_y, grid_x = np.indices((h, w))
+        valid_grid_x = grid_x[mask] + 0.5
+        valid_grid_y = grid_y[mask] + 0.5
+        
+        x1 = (valid_grid_x - ltrb[:, 0]) * stride
+        y1 = (valid_grid_y - ltrb[:, 1]) * stride
+        x2 = (valid_grid_x + ltrb[:, 2]) * stride
+        y2 = (valid_grid_y + ltrb[:, 3]) * stride
+
+        cx = (x1 + x2) / 2.0
+        cy = (y1 + y2) / 2.0
+        w_box = x2 - x1
+        h_box = y2 - y1
+
+        valid_cls_scores = 1.0 / (1.0 + np.exp(-valid_cls_logits))
+
+        layer_pred = np.concatenate([
+            cx[:, None], cy[:, None], w_box[:, None], h_box[:, None],
+            valid_cls_scores
+        ], axis=-1)        
+        all_preds.append(layer_pred)
+        
+    if not all_preds:
+        return torch.zeros((1, 4 + nc, 0))
+        
+    final_pred = np.concatenate(all_preds, axis=0)
+    # Return as (1, 4+nc, N) for compatibility with Ultralytics NMS
     return torch.from_numpy(final_pred).permute(1, 0).unsqueeze(0).float()

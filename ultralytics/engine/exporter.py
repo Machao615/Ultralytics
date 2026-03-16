@@ -178,7 +178,7 @@ def export_formats():
         ["NCNN", "ncnn", "_ncnn_model", True, True, ["batch", "half"]],
         ["IMX", "imx", "_imx_model", True, True, ["int8", "fraction", "nms"]],
         ["RKNN", "rknn", "_rknn_model", False, False, ["batch", "name"]],
-        ["D-Robotics", "rdk", ".bin", False, False, ["imgsz", "data"]],
+        ["D-Robotics RDK", "rdk", "_rdk_model", False, False, ["imgsz", "data"]],
         ["ExecuTorch", "executorch", "_executorch_model", True, False, ["batch"]],
         ["Axelera", "axelera", "_axelera_model", False, False, ["batch", "int8", "fraction"]],
     ]
@@ -1233,23 +1233,38 @@ class Exporter:
 
     @try_export
     def export_rdk(self, prefix=colorstr("D-Robotics:")):
-        """Export YOLO model to D-Robotics BPU format."""
+        """
+        Exports an Ultralytics YOLO model to D-Robotics BPU .bin format.
+
+        This process involves patching the model heads for BPU compatibility, exporting to an intermediate 
+        ONNX model (opset 11), and then invoking the hb_mapper toolchain for INT8 quantization and compilation.
+
+        Args:
+            prefix (str, optional): Logging prefix for status messages. Defaults to "D-Robotics:".
+
+        Returns:
+            (str): Path to the exported BPU .bin model file.
+
+        Examples:
+            >>> from ultralytics import YOLO
+            >>> model = YOLO("yolo11n.pt")
+            >>> model.export(format="rdk")
+        """
         from ultralytics.utils.export.rdk import apply_rdk_patches, export_rdk
 
         check_rdk_requirements()
         # 1. Apply BPU specific patches to the model heads
         apply_rdk_patches(self.model)
-        
+
         # 2. Export to intermediate ONNX using the built-in method
         # We use opset 11 as it's well supported by BPU hb_mapper
         old_opset = self.args.opset
         self.args.opset = 11
         onnx_file = self.export_onnx()
-        self.args.opset = old_opset # Restore original opset
-        
+        self.args.opset = old_opset  # Restore original opset
+
         # 3. Call the BPU compiler with the generated ONNX
         return export_rdk(self.model, self.args, onnx_path=onnx_file)
-
     @try_export
     def export_executorch(self, prefix=colorstr("ExecuTorch:")):
         """Export YOLO model to ExecuTorch *.pte format."""
