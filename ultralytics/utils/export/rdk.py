@@ -1,19 +1,15 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
-"""
-D-Robotics RDK X5 BPU Export logic.
-"""
+"""D-Robotics RDK X5 BPU export logic."""
 
 import os
 import shutil
 import subprocess
-import yaml
 import numpy as np
 import torch
 import cv2
 from pathlib import Path
 
 from ultralytics.utils import LOGGER, colorstr, LINUX, ARM64
-from ultralytics.utils.checks import check_requirements, check_version
 from ultralytics.data.utils import check_det_dataset
 
 def bpu_detect_forward(self, x):
@@ -197,7 +193,7 @@ def _prepare_calibration_data(args, cal_data_dir, imgsz):
         input_tensor.tofile(dst_path)
 
 def export_rdk(model, args, onnx_path=None):
-    """Export Ultralytics YOLO model to D-Robotics BPU .bin format using hb_mapper."""
+    """Export an Ultralytics YOLO model to an RDK X5 BPU .bin package using hb_mapper."""
     prefix = colorstr("D-Robotics:")
     if ARM64:
         raise RuntimeError(f"{prefix} Export is only supported on x86_64 Linux with hb_mapper toolchain.")

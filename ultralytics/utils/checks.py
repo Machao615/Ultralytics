@@ -504,15 +504,19 @@ def check_requirements(requirements=ROOT.parent / "requirements.txt", exclude=()
                 LOGGER.warning(msg)
                 return False
         else:
-            return True
+            return False
+
+    return True
 
 
 def check_rdk_requirements():
     """Check and install D-Robotics export requirements."""
-    if not (LINUX and ARM64):  # Only check on x86_64 Linux (for export)
+    if LINUX and not ARM64:  # Export is only supported on x86_64 Linux
         check_requirements("rdkx5-yolo-mapper", cmds="-i https://mirrors.aliyun.com/pypi/simple/")
-    else:
-        # On ARM64 Linux, we expect this to be inference on a board
+        return
+
+    if LINUX and ARM64:
+        # On ARM64 Linux, we expect this to be inference on a board.
         if is_rdk():
             try:
                 import hbm_runtime  # noqa: F401
@@ -526,6 +530,12 @@ def check_rdk_requirements():
                 "You are attempting to run an RDK BPU model on a non-RDK ARM64 device. "
                 "Hardware acceleration via hbm_runtime is only supported on D-Robotics RDK devices (e.g., RDK X5)."
             )
+        return
+
+    LOGGER.warning(
+        "RDK export is only supported on x86_64 Linux, and RDK runtime inference is only supported on D-Robotics "
+        "ARM64 devices."
+    )
 
 def check_executorch_requirements():
     """Check and install ExecuTorch requirements including platform-specific dependencies."""

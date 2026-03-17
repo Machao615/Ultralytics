@@ -21,12 +21,12 @@ from ultralytics import YOLO
 # Load a model
 model = YOLO("yolo26n.pt")
 
-# Export to D-Robotics format
+# Export to RDK format
 # This will apply BPU-specific optimizations and call hb_mapper
-model.export(format="drobotics", data="coco8.yaml")
+model.export(format="rdk", data="coco8.yaml")
 ```
 
-The output will be a `.bin` file optimized for the RDK X5 BPU.
+The output will be a `*_rdk_model/` directory containing the compiled `.bin` and `metadata.yaml`.
 
 ## 3. Inference on RDK X5 Board
 
@@ -35,8 +35,8 @@ On the RDK X5 board, ensure you have `hbm_runtime` installed (usually pre-instal
 ```python
 from ultralytics import YOLO
 
-# Load the exported BPU model
-model = YOLO("yolo26n_bpu.bin")
+# Load the exported BPU model directory or the .bin file inside it
+model = YOLO("yolo26n_rdk_model")
 
 # Run inference
 results = model("image.jpg")
