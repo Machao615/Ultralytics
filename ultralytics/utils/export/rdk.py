@@ -203,6 +203,10 @@ def export_rdk(model, args, onnx_path=None):
     if isinstance(imgsz, int):
         imgsz = (imgsz, imgsz)
 
+    input_type_rt = str(getattr(args, "rdk_input_type", "nv12")).lower()
+    if input_type_rt not in {"nv12", "rgb"}:
+        raise ValueError(f"{prefix} Unsupported rdk_input_type='{input_type_rt}'. Expected one of: nv12, rgb.")
+
     if onnx_path is None:
         onnx_path = Path(args.model).with_suffix(".onnx")
         from . import torch2onnx
@@ -228,7 +232,7 @@ def export_rdk(model, args, onnx_path=None):
     _prepare_calibration_data(args, str(cal_data_dir), imgsz)
 
     model_name = onnx_path.stem
-    output_model_prefix = f"{model_name}_bayese_{imgsz[1]}x{imgsz[0]}_nv12"
+    output_model_prefix = f"{model_name}_bayese_{imgsz[1]}x{imgsz[0]}_{input_type_rt}"
     model_dir = onnx_path.with_name(f"{model_name}_rdk_model")
     bin_path = model_dir / f"{model_name}.bin"
     
@@ -240,7 +244,7 @@ def export_rdk(model, args, onnx_path=None):
   output_model_file_prefix: '{output_model_prefix}'
 input_parameters:
   input_name: ""
-  input_type_rt: 'nv12'
+  input_type_rt: '{input_type_rt}'
   input_type_train: 'rgb'
   input_layout_train: 'NCHW'
   norm_type: 'data_scale'

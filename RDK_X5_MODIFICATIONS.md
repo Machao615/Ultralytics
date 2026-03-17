@@ -250,3 +250,16 @@ What changed:
   - `ultralytics/nn/backends/rdk.py`
   - `ultralytics/utils/checks.py`
 - 如果后续还要持续同步上游，建议继续把 RDK 逻辑收敛在这三处附近，而不要再次把大量实现塞回 `autobackend.py`
+## Recent Update: RDK RGB Export Option
+
+- Added an RDK export argument `rdk_input_type`.
+- Default value remains `nv12` to preserve current X5 export behavior.
+- When `rdk_input_type=rgb` is passed during export, the generated `hb_mapper` YAML now writes `input_type_rt: 'rgb'`.
+- The generated output model prefix now also reflects the selected runtime input type.
+
+## 最近更新：RDK RGB 导出参数
+
+- 新增 RDK 导出参数 `rdk_input_type`。
+- 默认值仍为 `nv12`，保持现有 X5 导出行为不变。
+- 导出时传入 `rdk_input_type=rgb` 后，生成的 `hb_mapper` YAML 会写入 `input_type_rt: 'rgb'`。
+- 生成的输出模型前缀也会随运行时输入类型一并变化。
