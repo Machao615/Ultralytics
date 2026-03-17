@@ -10,7 +10,6 @@ import cv2
 from pathlib import Path
 
 from ultralytics.utils import LOGGER, colorstr, LINUX, ARM64
-from ultralytics.data.utils import check_det_dataset
 
 def bpu_detect_forward(self, x):
     """YOLO Detect Head Modified for D-Robotics BPU."""
@@ -142,6 +141,8 @@ def apply_rdk_patches(model):
 
 def _prepare_calibration_data(args, cal_data_dir, imgsz):
     """Generates calibration data using image dataset referenced in args.data."""
+    from ultralytics.data.utils import check_det_dataset
+
     if not args.data:
         raise ValueError("Missing 'data' argument for D-Robotics INT8 calibration. E.g., data=coco8.yaml")
     
