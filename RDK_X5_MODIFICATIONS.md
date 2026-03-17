@@ -255,6 +255,8 @@ What changed:
 - Added an RDK export argument `rdk_input_type`.
 - Default value remains `nv12` to preserve current X5 export behavior.
 - When `rdk_input_type=rgb` is passed during export, the generated `hb_mapper` YAML now writes `input_type_rt: 'rgb'`.
+- RGB export now also writes `input_layout_rt` inferred from the intermediate ONNX input shape.
+- RDK compile failures are re-raised directly so export reports the real compiler error instead of a follow-on `NoneType` failure.
 - The generated output model prefix now also reflects the selected runtime input type.
 
 ## 最近更新：RDK RGB 导出参数
@@ -262,4 +264,6 @@ What changed:
 - 新增 RDK 导出参数 `rdk_input_type`。
 - 默认值仍为 `nv12`，保持现有 X5 导出行为不变。
 - 导出时传入 `rdk_input_type=rgb` 后，生成的 `hb_mapper` YAML 会写入 `input_type_rt: 'rgb'`。
+- `rgb` 导出时会根据中间 ONNX 输入形状自动补齐 `input_layout_rt`。
+- RDK 编译失败时现在会直接抛出真实编译错误，不再继续触发一个误导性的 `NoneType` 异常。
 - 生成的输出模型前缀也会随运行时输入类型一并变化。

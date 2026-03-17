@@ -11,6 +11,17 @@ from pathlib import Path
 
 from ultralytics.utils import LOGGER, colorstr, LINUX, ARM64
 
+
+def _infer_runtime_layout(input_shape):
+    """Infer hb_mapper runtime layout from an ONNX image input shape."""
+    if len(input_shape) != 4:
+        raise ValueError(f"Unsupported ONNX input shape for RDK export: {input_shape}")
+    if input_shape[1] == 3:
+        return "NCHW"
+    if input_shape[3] == 3:
+        return "NHWC"
+    raise ValueError(f"Unable to infer runtime input layout from ONNX input shape: {input_shape}")
+
 def bpu_detect_forward(self, x):
     """YOLO Detect Head Modified for D-Robotics BPU."""
     res = []
@@ -216,6 +227,15 @@ def export_rdk(model, args, onnx_path=None):
     if not onnx_path.exists():
         raise FileNotFoundError(f"{prefix} Intermediate ONNX file not found at {onnx_path}")
 
+    runtime_layout_line = ""
+    if input_type_rt == "rgb":
+        import onnx
+
+        model_onnx = onnx.load(str(onnx_path))
+        onnx_input_shape = [dim.dim_value for dim in model_onnx.graph.input[0].type.tensor_type.shape.dim]
+        input_layout_rt = _infer_runtime_layout(onnx_input_shape)
+        runtime_layout_line = f"  input_layout_rt: '{input_layout_rt}'\n"
+
     save_dir = getattr(args, "save_dir", onnx_path.parent) or onnx_path.parent
     save_dir = Path(save_dir).resolve()
     ws_dir = save_dir / ".temporary_workspace"
@@ -245,7 +265,7 @@ def export_rdk(model, args, onnx_path=None):
 input_parameters:
   input_name: ""
   input_type_rt: '{input_type_rt}'
-  input_type_train: 'rgb'
+{runtime_layout_line}  input_type_train: 'rgb'
   input_layout_train: 'NCHW'
   norm_type: 'data_scale'
   scale_value: 0.003921568627451
@@ -287,10 +307,10 @@ compiler_parameters:
             LOGGER.info(f"{prefix} Export success: {model_dir}")
         else:
             LOGGER.error(f"{prefix} Compilation finished but .bin file not found.")
-            return None
+            raise FileNotFoundError(f"{prefix} Compilation finished but .bin file was not produced.")
     except Exception as e:
         LOGGER.error(f"{prefix} BPU compilation failed: {e}")
-        return None
+        raise
     finally:
         os.chdir(original_cwd)
 
