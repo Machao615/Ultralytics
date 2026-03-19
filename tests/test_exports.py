@@ -6,12 +6,14 @@ import uuid
 from contextlib import redirect_stderr, redirect_stdout
 from itertools import product
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
 from tests import MODEL, SOURCE
 from ultralytics import YOLO
 from ultralytics.cfg import TASK2DATA, TASK2MODEL, TASKS
+from ultralytics.engine.exporter import export_formats
 from ultralytics.utils import ARM64, IS_RASPBERRYPI, LINUX, MACOS, MACOS_VERSION, WINDOWS, checks
 from ultralytics.utils.torch_utils import TORCH_1_10, TORCH_1_11, TORCH_1_13, TORCH_2_0, TORCH_2_1, TORCH_2_8, TORCH_2_9
 
@@ -28,6 +30,25 @@ def test_export_onnx(end2end):
     """Test YOLO model export to ONNX format with dynamic axes."""
     file = YOLO(MODEL).export(format="onnx", dynamic=True, imgsz=32, end2end=end2end)
     YOLO(file)(SOURCE, imgsz=32)  # exported model inference
+
+
+def test_export_formats_include_rdk():
+    """Test that RDK is registered as an export format with the expected suffix and arguments."""
+    formats = export_formats()
+    idx = formats["Argument"].index("rdk")
+    assert formats["Format"][idx] == "RDK"
+    assert formats["Suffix"][idx] == "_rdk_model"
+    assert formats["Arguments"][idx] == ["imgsz", "data"]
+
+
+def test_check_rdk_requirements_warns_on_unsupported_non_linux_arm64_platform():
+    """Test that RDK requirement checks warn and exit cleanly on unsupported platforms."""
+    with patch.object(checks, "LINUX", False), patch.object(checks, "ARM64", False), patch.object(
+        checks.LOGGER, "warning"
+    ) as warning:
+        checks.check_rdk_requirements()
+
+    warning.assert_called_once()
 
 
 @pytest.mark.skipif(not TORCH_2_1, reason="OpenVINO requires torch>=2.1")

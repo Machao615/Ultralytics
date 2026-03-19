@@ -1267,6 +1267,7 @@ class Exporter:
 
         # 3. Call the BPU compiler with the generated ONNX
         return export_rdk(self.model, self.args, onnx_path=onnx_file)
+
     @try_export
     def export_executorch(self, prefix=colorstr("ExecuTorch:")):
         """Export YOLO model to ExecuTorch *.pte format."""
