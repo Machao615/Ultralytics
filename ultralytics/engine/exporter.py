@@ -632,15 +632,15 @@ class Exporter:
             f[13] = self.export_imx()
         if rknn:
             f[14] = self.export_rknn()
-        if executorch:
-            f[15] = self.export_executorch()
-        if axelera:
-            f[16] = self.export_axelera()
-        if fmt == "rdk":
+        if rdk:
             # Ensure metadata is saved before RDK compilation
             bin_path = self.file.with_suffix(".bin")
             YAML.save(bin_path.parent / "metadata.yaml", self.metadata)
-            f[fmts.index("rdk")] = self.export_rdk()
+            f[15] = self.export_rdk()
+        if executorch:
+            f[16] = self.export_executorch()
+        if axelera:
+            f[17] = self.export_axelera()
 
         # Finish
         f = [str(x) for x in f if x]  # filter out '' and None
