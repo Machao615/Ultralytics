@@ -11,17 +11,6 @@ from pathlib import Path
 
 from ultralytics.utils import LOGGER, colorstr, LINUX, ARM64
 
-
-def _infer_runtime_layout(input_shape):
-    """Infer hb_mapper runtime layout from an ONNX image input shape."""
-    if len(input_shape) != 4:
-        raise ValueError(f"Unsupported ONNX input shape for RDK export: {input_shape}")
-    if input_shape[1] == 3:
-        return "NCHW"
-    if input_shape[3] == 3:
-        return "NHWC"
-    raise ValueError(f"Unable to infer runtime input layout from ONNX input shape: {input_shape}")
-
 def bpu_detect_forward(self, x):
     """YOLO Detect Head Modified for D-Robotics BPU."""
     res = []
@@ -214,10 +203,6 @@ def export_rdk(model, args, onnx_path=None):
     if isinstance(imgsz, int):
         imgsz = (imgsz, imgsz)
 
-    input_type_rt = str(getattr(args, "rdk_input_type", "nv12")).lower()
-    if input_type_rt not in {"nv12", "rgb"}:
-        raise ValueError(f"{prefix} Unsupported rdk_input_type='{input_type_rt}'. Expected one of: nv12, rgb.")
-
     if onnx_path is None:
         onnx_path = Path(args.model).with_suffix(".onnx")
         from . import torch2onnx
@@ -226,15 +211,6 @@ def export_rdk(model, args, onnx_path=None):
     onnx_path = Path(onnx_path).resolve()
     if not onnx_path.exists():
         raise FileNotFoundError(f"{prefix} Intermediate ONNX file not found at {onnx_path}")
-
-    runtime_layout_line = ""
-    if input_type_rt == "rgb":
-        import onnx
-
-        model_onnx = onnx.load(str(onnx_path))
-        onnx_input_shape = [dim.dim_value for dim in model_onnx.graph.input[0].type.tensor_type.shape.dim]
-        input_layout_rt = _infer_runtime_layout(onnx_input_shape)
-        runtime_layout_line = f"  input_layout_rt: '{input_layout_rt}'\n"
 
     save_dir = getattr(args, "save_dir", onnx_path.parent) or onnx_path.parent
     save_dir = Path(save_dir).resolve()
@@ -252,7 +228,7 @@ def export_rdk(model, args, onnx_path=None):
     _prepare_calibration_data(args, str(cal_data_dir), imgsz)
 
     model_name = onnx_path.stem
-    output_model_prefix = f"{model_name}_bayese_{imgsz[1]}x{imgsz[0]}_{input_type_rt}"
+    output_model_prefix = f"{model_name}_bayese_{imgsz[1]}x{imgsz[0]}_nv12"
     model_dir = onnx_path.with_name(f"{model_name}_rdk_model")
     bin_path = model_dir / f"{model_name}.bin"
     
@@ -264,8 +240,8 @@ def export_rdk(model, args, onnx_path=None):
   output_model_file_prefix: '{output_model_prefix}'
 input_parameters:
   input_name: ""
-  input_type_rt: '{input_type_rt}'
-{runtime_layout_line}  input_type_train: 'rgb'
+  input_type_rt: 'nv12'
+  input_type_train: 'rgb'
   input_layout_train: 'NCHW'
   norm_type: 'data_scale'
   scale_value: 0.003921568627451
